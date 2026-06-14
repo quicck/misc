@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今週の映画ランキング</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['"Sawarabi Mincho"', '"Yu Mincho"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* リキッドガラス（Liquid Glass）用のシームレス背景 */
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            overflow: hidden; /* 画像保存用にスクロールバーを完全に禁止 */
+            user-select: none;
+        }
+
+        /* 液状オーブ（背景演出） */
+        .liquid-orb-1 {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(165, 180, 252, 0.4) 0%, rgba(255, 255, 255, 0) 70%);
+            top: -10%;
+            left: -10%;
+            z-index: 0;
+            animation: float 18s ease-in-out infinite alternate;
+        }
+
+        .liquid-orb-2 {
+            position: absolute;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(253, 186, 116, 0.3) 0%, rgba(255, 255, 255, 0) 70%);
+            bottom: -10%;
+            right: -10%;
+            z-index: 0;
+            animation: float 22s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(40px, 30px) rotate(360deg); }
+        }
+
+        /* 濡れたガラス質感(Glassmorphism) */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 
+                0 10px 40px 0 rgba(31, 38, 135, 0.03),
+                inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        /* 各映画行の極薄ガラスカード */
+        .glass-row {
+            background: rgba(255, 255, 255, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+        .glass-row:last-child {
+            border-bottom: none;
+        }
+        .glass-row:hover {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        /* 描画時のスムーズなフェードイン */
+        .fade-in {
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center p-3 sm:p-5 md:p-6 font-sans antialiased text-slate-800 relative">
+
+    <!-- 動的背景 -->
+    <div class="liquid-orb-1"></div>
+    <div class="liquid-orb-2"></div>
+
+    <!-- メインコンテナ (1画面にピタッと収まるよう高さを94vhに制御) -->
+    <div id="captureContainer" class="glass-panel w-full max-w-4xl h-[94vh] rounded-[32px] flex flex-col p-4 sm:p-6 justify-between relative z-10 opacity-0">
+        
+        <!-- ヘッダー（期間の日付のみを洗練された明朝体で表示） -->
+        <header class="text-center mb-4 shrink-0">
+            <h1 id="rankingDate" class="text-xl sm:text-2xl font-serif font-semibold text-slate-900 tracking-wider">
+                <!-- 期間がここに入ります -->
+            </h1>
+        </header>
+
+        <!-- 縦1列リスト領域 (10件が高さ100%を均等分割して収まるflexコンテナ) -->
+        <main id="listContainer" class="flex-1 flex flex-col justify-between overflow-hidden gap-1.5">
+            <!-- 1〜10位の行が動的に等幅で生成されます -->
+        </main>
+    </div>
+
+    <!-- 取得失敗時の静的バックアップデータ(0.txtを再現) -->
+    <script>
+        const FALLBACK_HTML = `
+        <h2 class="l date">6月5日～6月7日</h2>
+        <div id="top10">
+        <dl><dt class="xs"><img src="/images/common/ico_rank1.jpg" alt="1位" /><span><img src="/images/common/ico_rankStay.gif" alt="STAY" /></span>(1)</dt><dd class="ph"><a href="https://starwars.disney.co.jp/movie/mandalorian-grogu" class="m" target="_blank"><img src="/images/ranking/29259.jpg" alt="スター・ウォーズ／マンダロリアン・アンド・グローグー" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=402507" class="m" target="_blank">スター・ウォーズ／マンダロリアン・アンド・グローグー</a><span class="xs">ディズニー　3週目</span><span class="xs">[監督]ジョン・ファヴロー<br />[出演]ペドロ・パスカル/シガーニー・ウィーヴァー/ジェレミー・アレン・white</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank2.jpg" alt="2位" /><span><img src="/images/common/ico_rankStay.gif" alt="STAY" /></span>(2)</dt><dd class="ph"><a href="https://mario-movie.jp/" class="m" target="_blank"><img src="/images/ranking/29512.jpg" alt="ザ・スーパーマリオギャラクシー・ムービー" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=403250" class="m" target="_blank">ザ・スーパーマリオギャラクシー・ムービー</a><span class="xs">東宝東和　7週目</span><span class="xs">[監督]アーロン・ホーヴァス/マイケル・ジェレニック<br />[出演]クリス・プラット/アニャ・テイラー＝ジョイ/チャーリー・デイ</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank3.jpg" alt="3位" /><span><img src="/images/common/ico_rankStay.gif" alt="STAY" /></span>(3)</dt><dd class="ph"><a href="https://www.20thcenturystudios.jp/movies/devil-wears-prada2" class="m" target="_blank"><img src="/images/ranking/29513.jpg" alt="プラダを着た悪魔２" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=403251" class="m" target="_blank">プラダを着た悪魔２</a><span class="xs">ディズニー　6週目</span><span class="xs">[監督]デヴィッド・フランケル<br />[出演]アン・ハサウェイ/メリル・ストリープ/エミリー・ブラント</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank4.jpg" alt="4位" /><span><img src="/images/common/ico_rankStay.gif" alt="STAY" /></span>(4)</dt><dd class="ph"><a href="https://www.conan-movie.jp/2026/" class="m" target="_blank"><img src="/images/ranking/29624.jpg" alt="名探偵コナン ハイウェイの堕天使" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=403544" class="m" target="_blank">名探偵コナン ハイウェイの堕天使</a><span class="xs">東宝　9週目</span><span class="xs">[監督]蓮井隆弘<br />[出演]高山みなみ/山崎和佳奈/小山力也</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank5.jpg" alt="5位" /><span><img src="/images/common/ico_rankStay.gif" alt="STAY" /></span>(5)</dt><dd class="ph"><a href="https://gaga.ne.jp/hakononakanohitsuji/" class="m" target="_blank"><img src="/images/ranking/29270.jpg" alt="箱の中の羊" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=402542" class="m" target="_blank">箱の中の羊</a><span class="xs">東宝/ギャガ　2週目</span><span class="xs">[監督]是枝裕和<br />[出演]綾瀬はるか/大悟/桑木里夢</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank6.jpg" alt="6位" /><span><img src="/images/common/ico_rankNew.gif" alt="NEW" /></span>(-)</dt><dd class="ph"><a href="https://yamaguchikun.asmik-ace.co.jp/" class="m" target="_blank"><img src="/images/ranking/29671.jpg" alt="山口くんはワルくない" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=403605" class="m" target="_blank">山口くんはワルくない</a><span class="xs">アスミック・エース　1週目</span><span class="xs">[監督]守屋健太郎<br />[出演]高橋恭平/高橋ひかる/岩瀬洋志</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank7.jpg" alt="7位" /><span><img src="/images/common/ico_rankNew.gif" alt="NEW" /></span>(-)</dt><dd class="ph"><a href="https://masters-of-the-universe.jp/" class="m" target="_blank"><img src="/images/ranking/29920.jpg" alt="マスターズ・オブ・ユニバース" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=404271" class="m" target="_blank">マスターズ・オブ・ユニバース</a><span class="xs">ソニー　1週目</span><span class="xs">[監督]トラヴィス・ナイト<br />[出演]ニコラス・ガリツィン/ジャレッド・レトー/カミラ・メンデス</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank8.jpg" alt="8位" /><span><img src="/images/common/ico_rankDown.gif" alt="DOWN" /></span>(7)</dt><dd class="ph"><a href="https://skmtdays-movie.jp/" class="m" target="_blank"><img src="/images/ranking/29238.jpg" alt="ＳＡＫＡＭＯＴＯ ＤＡＹＳ" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=402439" class="m" target="_blank">ＳＡＫＡＭＯＴＯ ＤＡＹＳ</a><span class="xs">東宝　6週目</span><span class="xs">[監督]福田雄一<br />[出演]目黒蓮/高橋文哉/上戸彩</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank9.jpg" alt="9位" /><span><img src="/images/common/ico_rankDown.gif" alt="DOWN" /></span>(6)</dt><dd class="ph"><a href="https://www.mononoke-movie.com/" class="m" target="_blank"><img src="/images/ranking/28229.jpg" alt="劇場版モノノ怪 第三章 蛇神" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=399669" class="m" target="_blank">劇場版モノノ怪 第三章 蛇神</a><span class="xs">ツインエンジン　2週目</span><span class="xs">[監督]越田知明<br />[出演]神谷浩史/種崎敦美/入野自由</span></dd></dl>
+        <dl><dt class="xs"><img src="/images/common/ico_rank10.jpg" alt="10位" /><span><img src="/images/common/ico_rankNew.gif" alt="NEW" /></span>(-)</dt><dd class="ph"><a href="https://www.infolens.com/digital-circus/" class="m" target="_blank"><img src="/images/ranking/30539.jpg" alt="Ｔｈｅ Ａｍａｚｉｎｇ Ｄｉｇｉｔａｌ Ｃｉｒｃｕｓ ザ・ラストアクト" /></a></dd><dd class="txt"><a href="http://www.allcinema.net/prog/show_c.php?num_c=406046" class="m" target="_blank">Ｔｈｅ Ａｍａｚｉｎｇ Ｄｉｇｉｔａｌ Ｃｉｒｃｕｓ ザ・ラストアクト</a><span class="xs">インフォレンズ　1週目</span><span class="xs">[監督]グースワークス<br />[出演]リジー・フリーマン/アレックス・ロション/アマンダ・ハフォード</span></dd></dl>
+        </div>
+        `;
+    </script>
+
+    <!-- メインロジック -->
+    <script>
+        const targetUrl = 'https://www.kogyotsushin.com/archives/weekend/';
+
+        // カバー不具合・エラー時用のグラデーション色
+        const bgColors = [
+            'from-rose-400 to-red-500',
+            'from-blue-400 to-indigo-500',
+            'from-amber-400 to-orange-500',
+            'from-emerald-400 to-teal-500',
+            'from-purple-400 to-indigo-600',
+            'from-fuchsia-400 to-pink-500',
+            'from-sky-400 to-cyan-500',
+            'from-violet-400 to-purple-500',
+            'from-yellow-400 to-amber-500',
+            'from-slate-400 to-slate-500'
+        ];
+
+        window.onload = function() {
+            fetchRankingData();
+        };
+
+        // 指定のスクレイピングプロキシ配列
+        async function getHtmlFromProxies(url) {
+            const proxies = [
+                u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+            ];
+
+            let htmlContent = "";
+            let success = false;
+
+            for (let i = 0; i < proxies.length; i++) {
+                try {
+                    const res = await fetch(proxies[i](url));
+                    if (!res.ok) throw new Error();
+                    
+                    if (i === 0) {
+                        const json = await res.json();
+                        htmlContent = json.contents;
+                    } else {
+                        htmlContent = await res.text();
+                    }
+
+                    if (htmlContent) {
+                        success = true;
+                        break;
+                    }
+                } catch (e) {
+                    console.log(`Proxy ${i} failed`);
+                }
+            }
+            return { success, htmlContent };
+        }
+
+        // データフェッチ
+        async function fetchRankingData() {
+            const result = await getHtmlFromProxies(targetUrl);
+
+            if (result.success) {
+                parseAndRenderHtml(result.htmlContent);
+            } else {
+                console.warn('Realtime fetch failed. Rendering fallback rankings.');
+                parseAndRenderHtml(FALLBACK_HTML);
+            }
+
+            // ロード完了時に一括で美しくフェードイン
+            setTimeout(() => {
+                const container = document.getElementById('captureContainer');
+                container.classList.add('fade-in');
+            }, 300);
+        }
+
+        // タイトル文字数・行数に応じた文字サイズ自動調整関数
+        function getOptimalFontSizeClass(text) {
+            const length = text.length;
+            if (length > 25) {
+                // 非常に長いタイトル
+                return 'text-[9.5px] sm:text-[11.5px] leading-tight';
+            } else if (length > 15) {
+                // 中程度のタイトル
+                return 'text-[11px] sm:text-[13px] leading-tight';
+            } else {
+                // 短いタイトル
+                return 'text-xs sm:text-sm leading-snug';
+            }
+        }
+
+        // HTMLデータ解析 & 縦1列超精密レンダリング
+        function parseAndRenderHtml(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 期間表示
+            const dateEl = doc.querySelector('h2.date');
+            const rankingDate = document.getElementById('rankingDate');
+            if (dateEl) {
+                rankingDate.textContent = dateEl.textContent;
+            } else {
+                rankingDate.textContent = '今週末ランキング';
+            }
+
+            // ランキングデータのノードを全て抽出
+            const dlElements = doc.querySelectorAll('#top10 dl');
+            const listContainer = document.getElementById('listContainer');
+            listContainer.innerHTML = ''; 
+
+            dlElements.forEach((dl, index) => {
+                const rank = index + 1;
+
+                // トレンド判定
+                const trendImg = dl.querySelector('dt span img');
+                const trendAlt = trendImg ? trendImg.getAttribute('alt') : 'NEW';
+                
+                let trendBadge = '';
+                if (trendAlt === 'STAY') {
+                    trendBadge = `<span class="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-slate-100/80 text-slate-500 border border-slate-200">STAY</span>`;
+                } else if (trendAlt === 'NEW') {
+                    trendBadge = `<span class="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-amber-100/80 text-amber-600 border border-amber-200">NEW</span>`;
+                } else if (trendAlt === 'DOWN') {
+                    trendBadge = `<span class="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-rose-100/80 text-rose-500 border border-rose-200">DOWN</span>`;
+                } else {
+                    trendBadge = `<span class="px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-emerald-100/80 text-emerald-600 border border-emerald-200">UP</span>`;
+                }
+
+                // ポスター画像
+                const imgEl = dl.querySelector('dd.ph img');
+                let imgSrc = imgEl ? imgEl.getAttribute('src') : '';
+                const imgAlt = imgEl ? imgEl.getAttribute('alt') : 'Movie Poster';
+
+                if (imgSrc && !imgSrc.startsWith('http')) {
+                    imgSrc = 'http://www.kogyotsushin.com' + imgSrc;
+                }
+
+                // タイトル
+                const titleLink = dl.querySelector('dd.txt a');
+                const titleText = titleLink ? titleLink.textContent : '作品タイトル';
+
+                // 配給・週数などの情報
+                const spans = dl.querySelectorAll('dd.txt span.xs');
+                let providerAndWeek = '';
+                if (spans.length > 0) {
+                    providerAndWeek = spans[0].textContent;
+                }
+
+                // タイトルの長さに応じた個別クラスの取得
+                const titleSizeClass = getOptimalFontSizeClass(titleText);
+
+                // 縦1列にパズルのようにはまる1行のコンテナを作成
+                const row = document.createElement('div');
+                row.className = 'glass-row flex-1 flex items-center justify-between px-3 py-0.5 sm:px-4 rounded-xl relative overflow-hidden gap-3';
+                
+                const randomBg = bgColors[index % bgColors.length];
+
+                row.innerHTML = `
+                    <!-- 順位のみのエリア (RANK表記を削除) -->
+                    <div class="flex items-center justify-center w-8 sm:w-10 shrink-0">
+                        <span class="text-xl sm:text-2xl font-black text-slate-900 leading-none">${rank}</span>
+                    </div>
+
+                    <!-- ポスター画像 (高さ100%を維持、アスペクト比を切り取らず保持) -->
+                    <div class="h-[90%] aspect-[3/4.2] rounded-md overflow-hidden bg-gradient-to-tr ${randomBg} shrink-0 shadow-sm relative flex items-center justify-center">
+                        ${imgSrc ? `
+                            <img src="${imgSrc}" alt="${imgAlt}" 
+                                 class="h-full w-full object-contain" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                        ` : ''}
+                        <!-- 代替ロゴ -->
+                        <div class="absolute inset-0 flex items-center justify-center text-white hidden">
+                            <span class="text-sm font-black">${rank}</span>
+                        </div>
+                    </div>
+
+                    <!-- 作品テキストエリア (残りの幅を埋める、折り返し・完全表示) -->
+                    <div class="flex-1 flex flex-col justify-center min-w-0 py-0.5">
+                        <!-- 文字サイズをJS側で細かくアジャスト、省略せず全部表示 -->
+                        <h2 class="font-bold text-slate-800 ${titleSizeClass}" title="${titleText}">
+                            ${titleText}
+                        </h2>
+                        <span class="text-[8.5px] sm:text-[9.5px] font-bold text-indigo-500 tracking-wide mt-0.5 leading-none">${providerAndWeek}</span>
+                    </div>
+
+                    <!-- トレンド表示 -->
+                    <div class="shrink-0 flex justify-end w-12 sm:w-16">
+                        ${trendBadge}
+                    </div>
+                `;
+
+                listContainer.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
